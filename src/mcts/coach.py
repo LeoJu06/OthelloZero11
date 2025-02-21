@@ -74,7 +74,7 @@ class Coach:
         """
         all_examples = []
         iters = self.hyperparams.Coach["episodes_per_worker"]
-        for _ in tqdm(range(iters), unit="episode", desc="Self-Play"):
+        for _ in tqdm(range(iters), unit="episode", desc=f"Self-Play[{multi_mcts.idx}]"):
             #tqdm.write(f"Episode {_}/{iters}, Worker  {multi_mcts.idx}")
             all_examples += self.execute_single_episode(multi_mcts)
 
@@ -105,6 +105,7 @@ class Coach:
                 worker_process = mp.Process(target=self.self_play, args=(multi_mcts,))
                 workers.append(worker_process)
                 worker_process.start()
+            
             for worker in workers:
                 worker.join()
 
