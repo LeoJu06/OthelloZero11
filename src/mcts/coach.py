@@ -79,7 +79,9 @@ class Coach:
             all_examples += self.execute_single_episode(multi_mcts)
 
         # TODO: Implement data saving mechanism
-        self.data_manager.save_training_examples(all_examples)
+        self.data_manager.save_training_examples(all_examples, multi_mcts.idx)
+
+        
 
     def learn(self):
         """
