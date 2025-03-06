@@ -3,7 +3,33 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+# Residual Block Definition
+class ResidualBlock(nn.Module):
+    def __init__(self, in_features, out_features):
+        super(ResidualBlock, self).__init__()
+        self.fc1 = nn.Linear(in_features, out_features)
+        self.fc2 = nn.Linear(out_features, out_features)
+        
+    def forward(self, x):
+        # Save the input to add later
+        identity = x
+        
+        # First layer
+        x = F.relu(self.fc1(x))
+        
+        # Second layer
+        x = self.fc2(x)
+        
+        # Skip connection (add the original input to the output)
+        x += identity
+        
+        # Apply ReLU after adding
+        x = F.relu(x)
+        
+        return x
 
+
+# OthelloZeroModel with Residual Blocks
 class OthelloZeroModel(nn.Module):
     def __init__(self, board_size, action_size, device):
         super(OthelloZeroModel, self).__init__()
@@ -12,13 +38,13 @@ class OthelloZeroModel(nn.Module):
         self.board_size = board_size  # Expected 8x8
         self.action_size = action_size
 
-        # Using 64 input fields for the 8x8 board
-        self.fc1 = nn.Linear(
-            in_features=self.board_size * self.board_size, out_features=64
-        )
-        self.fc2 = nn.Linear(in_features=64, out_features=64)
-
-        # Two output heads: one for actions and one for the value
+        # Initial fully connected layers
+        self.fc1 = nn.Linear(in_features=self.board_size * self.board_size, out_features=64)
+        
+        # Stack of Residual Blocks (9 blocks)
+        self.residual_blocks = nn.ModuleList([ResidualBlock(64, 64) for _ in range(9)])
+        
+        # Output heads: one for actions and one for the value
         self.action_head = nn.Linear(in_features=64, out_features=self.action_size)
         self.value_head = nn.Linear(in_features=64, out_features=1)
 
@@ -28,10 +54,14 @@ class OthelloZeroModel(nn.Module):
         # Flatten the board(s) for the fully connected layers
         x = x.view(x.size(0), -1)  # Batch size stays the same, flatten board
 
-        # Forward pass
+        # Initial fully connected layer
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
 
+        # Pass through all the residual blocks
+        for block in self.residual_blocks:
+            x = block(x)
+        
+        # Action and value heads
         action_logits = self.action_head(x)
         value_logit = self.value_head(x)
 
