@@ -36,9 +36,10 @@ def train(model, data, epochs=70, batch_size=2048, lr=0.001):
     value_loss_fn = nn.MSELoss()
 
     # Convert data to tensors
-    boards = torch.tensor([d[0] for d in data], dtype=torch.float32).to(model.device)
-    policies = torch.tensor([d[1] for d in data], dtype=torch.float32).to(model.device)
-    values = torch.tensor([d[2] for d in data], dtype=torch.float32).to(model.device)
+    boards = torch.tensor(np.array([d[0] for d in data]), dtype=torch.float32).to(model.device)
+    policies = torch.tensor(np.array([d[1] for d in data]), dtype=torch.float32).to(model.device)
+    values = torch.tensor(np.array([d[2] for d in data]), dtype=torch.float32).to(model.device)
+
 
     dataset = torch.utils.data.TensorDataset(boards, policies, values)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
