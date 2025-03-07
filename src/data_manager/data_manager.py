@@ -93,7 +93,7 @@ class DataManager:
             pickle.dump(examples, f)
 
 
-    def load_example(self, n):
+    def load_examples(self, n):
 
         data_dir = self._path_to_data_dir()
 
