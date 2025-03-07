@@ -1,15 +1,15 @@
 from src.config.hyperparameters import Hyperparameters
 from src.othello.othello_game import OthelloGame
-from src.mcts.mcts import MultiprocessedMCTS, MCTS
+from src.mcts.mcts import MultiprocessedMCTS
 from src.neural_net.model import OthelloZeroModel
 from src.data_manager.data_manager import DataManager
-from src.mcts.manager import init_manager, init_manager_process,terminate_manager_process, create_multiprocessed_mcts
+from src.mcts.manager import init_manager, init_manager_process, terminate_manager_process, create_multiprocessed_mcts
 from src.othello.game_constants import PlayerColor
 from src.utils.index_to_coordinates import index_to_coordinates
 import torch.multiprocessing as mp
 from tqdm import tqdm
 import time
-
+import logging
 
 class Coach:
     """
@@ -17,7 +17,8 @@ class Coach:
     for the Othello Zero model.
     """
 
-    mp.set_start_method("spawn", force=True) # set the correct start method
+    mp.set_start_method("spawn", force=True)  # Set multiprocessing start method
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     def __init__(self):
         """
@@ -41,15 +42,13 @@ class Coach:
         current_player = PlayerColor.BLACK.value  # Black always starts
         examples = []  # Training data storage
         episode_step = 0
-        local_data_manager = DataManager()
 
         while not game.is_terminal_state(state):
-           # start  = time.time()
             temp = int(episode_step < self.hyperparams.MCTS["temp_threshold"])
             root = mcts.run_search(state, current_player)
 
             # Store training example
-            examples.append(local_data_manager.create_example(state, current_player, root, temp))
+            examples.append(self.data_manager.create_example(state, current_player, root, temp))
 
             # Select action and update game state
             x_pos, y_pos = index_to_coordinates(root.select_action(temp))
@@ -57,81 +56,89 @@ class Coach:
 
             episode_step += 1
             root.reset()
-            end = time.time()
-            #print(f"Time per move {end-start:.2f}")
 
         # Assign rewards based on the game outcome
         game_outcome = game.get_reward_for_player(state, PlayerColor.BLACK.value)
-        return local_data_manager.assign_rewards(examples, game_outcome)
+        return self.data_manager.assign_rewards(examples, game_outcome)
 
-    def self_play(self, multi_mcts: MultiprocessedMCTS):
+    def self_play_worker(self, queue, worker_id, manager):
         """
-        Runs multiple self-play episodes and collects training examples.
-
-        Args:
-            multi_mcts (MultiprocessedMCTS): The MCTS instance.
-            num_episodes (int): Number of episodes to run.
+        Worker function to run multiple self-play episodes.
         """
-        all_examples = []
-        iters = self.hyperparams.Coach["episodes_per_worker"]
-        for _ in tqdm(range(iters), unit="episode", desc=f"Self-Play[{multi_mcts.idx}]"):
-            #tqdm.write(f"Episode {_}/{iters}, Worker  {multi_mcts.idx}")
-            all_examples += self.execute_single_episode(multi_mcts)
+        logging.info(f"Worker {worker_id} started.")
+        multi_mcts = create_multiprocessed_mcts(worker_id, manager)
+        episodes = self.hyperparams.Coach["episodes_per_worker"]
 
-        # TODO: Implement data saving mechanism
-        self.data_manager.save_training_examples(all_examples, multi_mcts.idx)
+        for _ in range(episodes):
+            episode_data = self.execute_single_episode(multi_mcts)
+            queue.put(episode_data)  # Send data to the main process
 
-        
+        logging.info(f"Worker {worker_id} finished.")
+        queue.put(None)  # Signal completion
+
+    def self_play(self, manager):
+        """
+        Runs multiple self-play episodes in parallel.
+        """
+        queue = mp.Queue()
+        num_workers = self.hyperparams.Coach["num_workers"]
+        workers = []
+
+        for worker_id in range(num_workers):
+            worker_process = mp.Process(target=self.self_play_worker, args=(queue, worker_id, manager))
+            workers.append(worker_process)
+            worker_process.start()
+
+        # Collect data from workers
+        total_examples = []
+        completed_workers = 0
+        while completed_workers < num_workers:
+            data = queue.get()
+            if data is None:
+                completed_workers += 1
+            else:
+                total_examples.extend(data)
+
+        # Save data once all workers are done
+        self.data_manager.save_training_examples(total_examples) # save training
+        self.data_manager.increment_iteration() # increment interation number in txt file
+        logging.info("Self-play data saved.")
+
+        for worker in workers:
+            worker.join()
 
     def learn(self):
         """
         Runs the reinforcement learning loop, collecting self-play data and training the model.
         """
+        game = OthelloGame()
+        hyperparams = self.hyperparams
+        model = OthelloZeroModel(game.rows, game.get_action_size(), hyperparams.Neural_Network["device"])
 
-        g = OthelloGame()
-        h = self.hyperparams
-        model = OthelloZeroModel(g.rows, g.get_action_size(), h.Neural_Network["device"])
-        for iteration in range(1, self.hyperparams.Coach["iterations"] + 1):
-            start = time.time()
-            tqdm.write(f"Iteration {iteration}/{self.hyperparams.Coach['iterations']} - Starting self-play...")
+        for iteration in range(1, hyperparams.Coach["iterations"] + 1):
+            start_time = time.time()
+            logging.info(f"Iteration {iteration}/{hyperparams.Coach['iterations']} - Starting self-play...")
 
-            #model = self.data_manager.load_best_model()
-            # Initialize MCTS with multiprocessing
-            manager = init_manager(model, self.hyperparams)
+            manager = init_manager(model, hyperparams)
             manager_process = init_manager_process(manager)
 
-           
-            workers = []
-            for worker_id in range(self.hyperparams.Coach["num_workers"]):
-                multi_mcts = create_multiprocessed_mcts(worker_id, manager)
-                worker_process = mp.Process(target=self.self_play, args=(multi_mcts,))
-                workers.append(worker_process)
-                worker_process.start()
-            
-            for worker in workers:
-                worker.join()
+            self.self_play(manager)
 
             terminate_manager_process(manager_process)
 
-            tqdm.write(f"Iteration {iteration} - Self-play complete. Training model...")
-
-            end = time.time()
-            tqdm.write(f"Iter needed {end-start:.2f}s")
+            logging.info(f"Iteration {iteration} - Self-play complete. Training model...")
 
             self.train()
+            logging.info(f"Iteration {iteration} completed in {time.time() - start_time:.2f}s.")
 
     def train(self):
         """
         Trains the neural network using collected self-play data.
         """
+        logging.info("Training process started.")
         # TODO: Implement training mechanism
-        pass
-
+        logging.info("Training complete.")
 
 if __name__ == "__main__":
-    """
-    Main execution block to initialize the game, model, and coach, and run a self-play episode.
-    """
-   
-    coach =  Coach()
+    coach = Coach()
     coach.learn()
