@@ -17,14 +17,14 @@ class OthelloZeroModel(nn.Module):
         self.action_size = action_size
 
         # Initial fully connected layers
-        self.fc1 = nn.Linear(in_features=self.board_size * self.board_size, out_features=64)
+        self.fc1 = nn.Linear(in_features=self.board_size * self.board_size, out_features=256)
         
         # Stack of Residual Blocks (9 blocks)
-        self.residual_blocks = nn.ModuleList([ResidualBlock(64, 64) for _ in range(9)])
+        self.residual_blocks = nn.ModuleList([ResidualBlock(256, 256) for _ in range(10)])
         
         # Output heads: one for actions and one for the value
-        self.action_head = nn.Linear(in_features=64, out_features=self.action_size)
-        self.value_head = nn.Linear(in_features=64, out_features=1)
+        self.action_head = nn.Linear(in_features=256, out_features=self.action_size)
+        self.value_head = nn.Linear(in_features=256, out_features=1)
 
         self.to(device)
 
