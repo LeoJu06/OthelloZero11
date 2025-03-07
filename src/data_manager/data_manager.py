@@ -2,6 +2,8 @@ from src.othello.game_constants import PlayerColor
 from src.othello.othello_game import OthelloGame
 import numpy as np
 from src.mcts.node import Node
+import os
+import pickle
 
 class DataManager:
 
@@ -33,7 +35,21 @@ class DataManager:
 
         pass
 
-    def save_training_examples(self, examples):
+    def save_training_examples(self, examples, idx):
+
+       
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data')
+
+        new_folder = os.path.join(data_dir, 'Iter1')
+       # os.makedirs(new_folder)
+        filename = f"examples_{idx}.pkl"
+        path = os.path.join(data_dir,filename)
+
+        with open(path, "wb") as f:
+            pickle.dump(examples, f)
+
+
+        print()
         pass
 
     def load_best_model(self):
@@ -50,3 +66,22 @@ class DataManager:
         """Collects data examples"""
 
         self.data.append(training_example)
+
+
+
+if __name__ == "__main__":
+
+    import os
+    import os
+    import os
+
+    from pathlib import Path
+
+    import os
+
+    # Pfad zum 'data' Ordner im Root-Verzeichnis
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data')
+
+    print(data_dir)
+
+
