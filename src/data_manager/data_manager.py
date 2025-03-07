@@ -92,6 +92,20 @@ class DataManager:
         with open(path, "wb") as f:
             pickle.dump(examples, f)
 
+
+    def load_example(self, n):
+
+        data_dir = self._path_to_data_dir()
+
+        filename = f"examples_iteration_{n}.pkl"
+        path = os.path.join(data_dir, filename)
+
+        with open(path, "rb") as f:
+            examples = pickle.load(f)
+
+        return examples
+        
+
     def load_best_model(self):
         """Loads the best model (placeholder implementation)."""
         best_model = None
@@ -113,8 +127,5 @@ if __name__ == "__main__":
 
     da = DataManager()
     n = da.get_iter_number()
-    print(f"Current iteration number: {n}")
-
-    da.increment_iteration()
-    n = da.get_iter_number()
-    print(f"Incremented iteration number: {n}")
+    
+    da.load_example(n)
