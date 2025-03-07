@@ -128,10 +128,13 @@ class Coach:
 
             logging.info(f"Iteration {iteration} - Self-play complete. Training model...")
 
-            self.train()
+            examples = self.data_manager.load_example(0)
+            
+
+            self.train(model, examples)
             logging.info(f"Iteration {iteration} completed in {time.time() - start_time:.2f}s.")
 
-    def train(self):
+    def train(self,model,  examples):
         """
         Trains the neural network using collected self-play data.
         """
