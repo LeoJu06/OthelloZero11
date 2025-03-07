@@ -21,8 +21,8 @@ class Hyperparameters:
         "temp": 1,
     }
 
-    Coach = {"iterations": 2, 
-             "episodes": 22,
+    Coach = {"iterations": 1, 
+             "episodes": 22*200,
              "num_workers" :22, }
     Coach["episodes_per_worker"] = Coach["episodes"] // Coach["num_workers"]
 
