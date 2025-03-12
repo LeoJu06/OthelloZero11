@@ -17,7 +17,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = OthelloZeroModel(8, 65, device)
 
-def train(model, data, epochs=10, batch_size=2048, lr=0.001):
+def train(model, data, epochs=10, batch_size=2048, lr=0.001, save_training_plot=False):
     """
     Trains the AlphaZero model with the given data.
 
@@ -85,16 +85,10 @@ def train(model, data, epochs=10, batch_size=2048, lr=0.001):
 
         print(f"Epoch {epoch+1}/{epochs} - Policy Loss: {total_policy_loss:.4f} - Value Loss: {total_value_loss:.4f}")
     
-    plt.figure(figsize=(10, 5))
-    plt.plot(range(1, epochs + 1), policy_losses, label="Policy Loss")
-    plt.plot(range(1, epochs + 1), value_losses, label="Value Loss")
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.title("Training Loss")
-    plt.legend()
-    plt.show()
+    
+  
 
-    return model
+    return model, policy_losses, value_losses
 
 if __name__ == "__main__":
     print(f"Number of training examples: {len(examples)}")
