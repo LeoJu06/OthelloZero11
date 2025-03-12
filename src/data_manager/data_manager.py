@@ -1,8 +1,10 @@
 from src.othello.game_constants import PlayerColor
 from src.othello.othello_game import OthelloGame
+from src.neural_net.model import OthelloZeroModel
 from src.mcts.node import Node
 import os
 import pickle
+import torch
 from pathlib import Path
 
 class DataManager:
@@ -97,6 +99,8 @@ class DataManager:
 
         data_dir = self._path_to_data_dir()
 
+        
+
         filename = f"examples_iteration_{n}.pkl"
         path = os.path.join(data_dir, filename)
 
@@ -106,10 +110,21 @@ class DataManager:
         return examples
         
 
-    def load_best_model(self):
-        """Loads the best model (placeholder implementation)."""
-        best_model = None
-        return best_model
+
+    
+    def save_model(self, model:OthelloZeroModel):
+        n = self.get_iter_number()
+        torch.save(model.state_dict(), f"data/othello_zero_model_{n}")
+
+    def load_model(self, latest_model=True):
+        """Loads a model. If n is None the best model (last iter) is being returned"""
+
+        if latest_model:
+            n = self.get_iter_number()
+        model = OthelloZeroModel(8, 65, "cuda")
+        model.load_state_dict(torch.load(f"data/othello_zero_model_{n}"))
+        return model
+
 
     def collect(self, training_example):
         """Collects training examples.
