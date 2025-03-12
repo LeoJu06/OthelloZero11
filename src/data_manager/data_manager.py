@@ -88,7 +88,7 @@ class DataManager:
         """
         data_dir = self._path_to_data_dir()
         n = self.get_iter_number()
-        filename = f"examples_iteration_{n}.pkl"
+        filename = f"examples/examples_iteration_{n}.pkl"
         path = os.path.join(data_dir, filename)
 
         with open(path, "wb") as f:
@@ -114,9 +114,9 @@ class DataManager:
             n = self.get_iter_number()  # +1, because range() exludes the last number
             combinded = []
 
-            for ex_n in reversed(range(max(n-8, 0), n)):
+            for ex_n in reversed(range(max(n-8, 0), max(n, 1))):
                 print("File number", ex_n)
-                filename = f"examples_iteration_{ex_n}.pkl"
+                filename = f"examples/examples_iteration_{ex_n}.pkl"
                 path = os.path.join(data_dir, filename)
 
                 with open(path, "rb") as f:
@@ -131,7 +131,7 @@ class DataManager:
     
     def save_model(self, model:OthelloZeroModel):
         n = self.get_iter_number()
-        torch.save(model.state_dict(), f"data/othello_zero_model_{n}")
+        torch.save(model.state_dict(), f"data/models/othello_zero_model_{n}")
 
     def load_model(self, latest_model=True):
         """Loads a model. If n is None the best model (last iter) is being returned"""
@@ -139,7 +139,7 @@ class DataManager:
         if latest_model:
             n = self.get_iter_number()
         model = OthelloZeroModel(8, 65, "cuda")
-        model.load_state_dict(torch.load(f"data/othello_zero_model_{n}"))
+        model.load_state_dict(torch.load(f"data/models/othello_zero_model_{n}"))
         return model
 
 
