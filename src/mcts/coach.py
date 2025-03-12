@@ -6,11 +6,14 @@ from src.data_manager.data_manager import DataManager
 from src.mcts.manager import init_manager, init_manager_process, terminate_manager_process, create_multiprocessed_mcts
 from src.othello.game_constants import PlayerColor
 from src.utils.index_to_coordinates import index_to_coordinates
+from src.arena.arena import Arena
+from src.neural_net.train_model import train
 import torch.multiprocessing as mp
+
 from tqdm import tqdm
 import time
 import logging
-
+logging.basicConfig(level=logging.CRITICAL)
 class Coach:
     """
     The Coach class manages self-play episodes, data collection, and training 
@@ -26,6 +29,7 @@ class Coach:
         """
         self.hyperparams = Hyperparameters()
         self.data_manager = DataManager()
+        self.arena = Arena()
 
     def execute_single_episode(self, mcts: MultiprocessedMCTS):
         """
@@ -101,7 +105,7 @@ class Coach:
 
         # Save data once all workers are done
         self.data_manager.save_training_examples(total_examples) # save training
-        self.data_manager.increment_iteration() # increment interation number in txt file
+      
         logging.info("Self-play data saved.")
 
         for worker in workers:
@@ -114,6 +118,7 @@ class Coach:
         game = OthelloGame()
         hyperparams = self.hyperparams
         model = OthelloZeroModel(game.rows, game.get_action_size(), hyperparams.Neural_Network["device"])
+        self.data_manager.save_model(model)
 
         for iteration in range(1, hyperparams.Coach["iterations"] + 1):
             start_time = time.time()
@@ -123,15 +128,28 @@ class Coach:
             manager_process = init_manager_process(manager)
 
             self.self_play(manager)
+            
 
             terminate_manager_process(manager_process)
 
             logging.info(f"Iteration {iteration} - Self-play complete. Training model...")
 
-            examples = self.data_manager.load_example(0)
+            examples = self.data_manager.load_examples(self.data_manager.get_iter_number())
             
 
-            self.train(model, examples)
+            new_model = self.train(model, examples)
+            old_model = self.data_manager.load_model(latest_model=True)
+
+            won, lost = self.arena.let_compete(new_model, old_model)
+            if won / self.hyperparams.Arena["arena_games"] >= self.hyperparams.Arena["treshold"]:
+                print("Accepting new model")
+                model = new_model
+            else:
+                print("New model declined")
+                model = old_model
+
+            self.data_manager.increment_iteration() # increment interation number in txt file
+            self.data_manager.save_model(model)
             logging.info(f"Iteration {iteration} completed in {time.time() - start_time:.2f}s.")
 
     def train(self,model,  examples):
@@ -139,8 +157,11 @@ class Coach:
         Trains the neural network using collected self-play data.
         """
         logging.info("Training process started.")
+
+        model = train(model, examples, epochs=40, batch_size=256)
         # TODO: Implement training mechanism
         logging.info("Training complete.")
+        return model
 
 if __name__ == "__main__":
     coach = Coach()
