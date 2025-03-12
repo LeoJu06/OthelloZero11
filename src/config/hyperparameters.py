@@ -21,8 +21,8 @@ class Hyperparameters:
         "temp": 1,
     }
 
-    Coach = {"iterations": 1, 
-             "episodes": 22*200,
+    Coach = {"iterations": 5, 
+             "episodes": 22*10,
              "num_workers" :22, }
     Coach["episodes_per_worker"] = Coach["episodes"] // Coach["num_workers"]
 
@@ -31,3 +31,5 @@ class Hyperparameters:
     }
 
     Node = {"key_passing": -1, "prior_passing": 1}
+
+    Arena = {"treshold": 0.6, "arena_games": 20}
