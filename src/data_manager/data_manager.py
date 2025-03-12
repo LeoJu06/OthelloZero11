@@ -95,19 +95,36 @@ class DataManager:
             pickle.dump(examples, f)
 
 
-    def load_examples(self, n):
+    def load_examples(self, n=None):
 
         data_dir = self._path_to_data_dir()
 
+        if n is not None:
+
+            filename = f"examples_iteration_{n}.pkl"
+            path = os.path.join(data_dir, filename)
+
+            with open(path, "rb") as f:
+                examples = pickle.load(f)
+
+            return examples
         
+        else:
 
-        filename = f"examples_iteration_{n}.pkl"
-        path = os.path.join(data_dir, filename)
+            n = self.get_iter_number()  # +1, because range() exludes the last number
+            combinded = []
 
-        with open(path, "rb") as f:
-            examples = pickle.load(f)
+            for ex_n in reversed(range(max(n-8, 0), n)):
+                print("File number", ex_n)
+                filename = f"examples_iteration_{ex_n}.pkl"
+                path = os.path.join(data_dir, filename)
 
-        return examples
+                with open(path, "rb") as f:
+                    examples = pickle.load(f)
+                    combinded.extend(examples)
+
+            return combinded
+
         
 
 
@@ -142,5 +159,6 @@ if __name__ == "__main__":
 
     da = DataManager()
     n = da.get_iter_number()
-    
-    da.load_example(n)
+
+    e = da.load_examples()
+    print(len(e))
