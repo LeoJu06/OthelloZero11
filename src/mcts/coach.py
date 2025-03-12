@@ -1,4 +1,5 @@
 from src.config.hyperparameters import Hyperparameters
+import os
 from src.othello.othello_game import OthelloGame
 from src.mcts.mcts import MultiprocessedMCTS
 from src.neural_net.model import OthelloZeroModel
@@ -8,9 +9,16 @@ from src.othello.game_constants import PlayerColor
 from src.utils.index_to_coordinates import index_to_coordinates
 from src.arena.arena import Arena
 from src.neural_net.train_model import train
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.platypus import Table, TableStyle
 import torch.multiprocessing as mp
 import src.utils.logger_config as lg
 import matplotlib.pyplot as plt
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from tqdm import tqdm
 import time
 
@@ -129,7 +137,7 @@ class Coach:
 
         for iteration in (range(1, hyperparams.Coach["iterations"] + 1)):
             lg.logger_coach.info(f"---Starting Iteration {iteration}---")
-            self.data_manager.increment_iteration() # increment interation number in txt file
+          
             start_time = time.time()
             lg.logger_coach.info(f"Iteration {iteration}/{hyperparams.Coach['iterations']} - Starting self-play...")
 
@@ -169,8 +177,12 @@ class Coach:
             
 
           
+            self.report(won, lost, examples, duration=time.time()-start_time)
+            self.data_manager.increment_iteration() # increment interation number in txt file
             self.data_manager.save_model(model) # save new model
             lg.logger_coach.info(f"Iteration {iteration} completed in {time.time() - start_time:.2f}s.")
+
+            
             lg.logger_coach.info("*** --- ***")
             lg.logger_coach.info("")
 
@@ -193,13 +205,55 @@ class Coach:
         plt.ylabel("Loss")
         plt.title(f"Training Loss Iteration {iter_number} ")
         plt.legend()
-        plt.savefig(f"Training_loss_{iter_number}", dpi=300)
+
+        plt.savefig(f"data/losses_plotted/Training_loss_{iter_number}", dpi=300)
 
         return model
     
     def accept_new_model(self, won):
       
         return won / self.hyperparams.Arena["arena_games"] >= self.hyperparams.Arena["treshold"]
+    
+
+    def report(self, won, lost, examples, duration):
+        n = self.data_manager.get_iter_number()
+        pdf_filename = f"data/reports/report_iteration_{n}.pdf"
+        report_image = f"data/losses_plotted/Training_loss_{n}.png"
+
+        # PDF-Dokument erstellen
+        c = canvas.Canvas(pdf_filename, pagesize=letter)
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(100, 770, f"Training Report - Iteration {n}")
+
+        # Horizontale Linie für Struktur
+        c.setStrokeColor(colors.black)
+        c.line(100, 760, 500, 760)
+
+        # Informationen über Trainingsergebnisse
+        c.setFont("Helvetica", 12)
+        info_text = [
+            f"Games Won: {won}",
+            f"Games Lost: {lost}",
+            f"Number of Training Examples: {len(examples)}",
+            f"Model Accepted: {self.accept_new_model(won)}",
+            f"Training Duration: {duration:.2f} seconds",
+        ]
+
+        y_position = 730
+        for line in info_text:
+            c.drawString(100, y_position, line)
+            y_position -= 20  # Abstand zwischen den Zeilen
+
+        # Loss-Plot einfügen (falls vorhanden)
+        if os.path.exists(report_image):
+            c.drawString(100, y_position - 10, "Training Loss Plot:")
+            c.drawImage(report_image, 100, y_position - 250, width=400, height=250)
+        else:
+            c.drawString(100, y_position - 10, "Training Loss Plot: (Not Found)")
+
+        # PDF speichern
+        c.save()
+        print(f"📄 PDF gespeichert als {pdf_filename}")
 
 if __name__ == "__main__":
     coach = Coach()
