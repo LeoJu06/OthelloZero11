@@ -9,11 +9,13 @@ from src.utils.index_to_coordinates import index_to_coordinates
 from src.arena.arena import Arena
 from src.neural_net.train_model import train
 import torch.multiprocessing as mp
-
+import src.utils.logger_config as lg
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 import time
-import logging
-logging.basicConfig(level=logging.CRITICAL)
+
+
+
 class Coach:
     """
     The Coach class manages self-play episodes, data collection, and training 
@@ -21,7 +23,7 @@ class Coach:
     """
 
     mp.set_start_method("spawn", force=True)  # Set multiprocessing start method
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    
 
     def __init__(self):
         """
@@ -69,15 +71,16 @@ class Coach:
         """
         Worker function to run multiple self-play episodes.
         """
-        logging.info(f"Worker {worker_id} started.")
+        lg.logger_coach.info(f"Worker[{worker_id}] Started executing Episodes")
+
         multi_mcts = create_multiprocessed_mcts(worker_id, manager)
         episodes = self.hyperparams.Coach["episodes_per_worker"]
 
-        for _ in range(episodes):
+        for _ in tqdm(range(episodes)):
             episode_data = self.execute_single_episode(multi_mcts)
             queue.put(episode_data)  # Send data to the main process
 
-        logging.info(f"Worker {worker_id} finished.")
+        lg.logger_coach.info(f"Worker[{worker_id}] Finished executing Episodes")
         queue.put(None)  # Signal completion
 
     def self_play(self, manager):
@@ -103,10 +106,14 @@ class Coach:
             else:
                 total_examples.extend(data)
 
+        lg.logger_coach.info("Self-PLay Finished")
+        lg.logger_coach.info(f"Collected {len(total_examples)} Examples")
+
         # Save data once all workers are done
         self.data_manager.save_training_examples(total_examples) # save training
       
-        logging.info("Self-play data saved.")
+
+        lg.logger_coach.info("Data was successfully saved")
 
         for worker in workers:
             worker.join()
@@ -120,9 +127,11 @@ class Coach:
         model = OthelloZeroModel(game.rows, game.get_action_size(), hyperparams.Neural_Network["device"])
         self.data_manager.save_model(model)
 
-        for iteration in range(1, hyperparams.Coach["iterations"] + 1):
+        for iteration in (range(1, hyperparams.Coach["iterations"] + 1)):
+            lg.logger_coach.info(f"---Starting Iteration {iteration}---")
+            self.data_manager.increment_iteration() # increment interation number in txt file
             start_time = time.time()
-            logging.info(f"Iteration {iteration}/{hyperparams.Coach['iterations']} - Starting self-play...")
+            lg.logger_coach.info(f"Iteration {iteration}/{hyperparams.Coach['iterations']} - Starting self-play...")
 
             manager = init_manager(model, hyperparams)
             manager_process = init_manager_process(manager)
@@ -132,36 +141,65 @@ class Coach:
 
             terminate_manager_process(manager_process)
 
-            logging.info(f"Iteration {iteration} - Self-play complete. Training model...")
+            lg.logger_coach.info(f"Iteration {iteration} - Self-play complete. Training model...")
 
-            examples = self.data_manager.load_examples(self.data_manager.get_iter_number())
+            examples = self.data_manager.load_examples()
             
-
+            lg.logger_coach.info("Start Training Model.")
             new_model = self.train(model, examples)
+            lg.logger_coach.info("Training Model complete.")
+
             old_model = self.data_manager.load_model(latest_model=True)
+            lg.logger_coach.info("Arena - New Model vs. old Model.")
 
             won, lost = self.arena.let_compete(new_model, old_model)
-            if won / self.hyperparams.Arena["arena_games"] >= self.hyperparams.Arena["treshold"]:
-                print("Accepting new model")
+            lg.logger_coach.info("Battle Completed.")
+
+
+            if self.accept_new_model(won):
+                lg.logger_coach.info(f"New Model was accepted [win={won}, lost={lost}]")
+
+                print("New model was accepted")
                 model = new_model
             else:
-                print("New model declined")
+                print("New model was Rejected")
+                lg.logger_coach.info(f"New Model was rejected [win={won}, lost={lost}]")
                 model = old_model
 
-            self.data_manager.increment_iteration() # increment interation number in txt file
-            self.data_manager.save_model(model)
-            logging.info(f"Iteration {iteration} completed in {time.time() - start_time:.2f}s.")
+            
+
+          
+            self.data_manager.save_model(model) # save new model
+            lg.logger_coach.info(f"Iteration {iteration} completed in {time.time() - start_time:.2f}s.")
+            lg.logger_coach.info("*** --- ***")
+            lg.logger_coach.info("")
 
     def train(self,model,  examples):
         """
         Trains the neural network using collected self-play data.
         """
-        logging.info("Training process started.")
+        epochs = self.hyperparams.Neural_Network["epochs"]
+        batch_size = self.hyperparams.Neural_Network["batch_size"]
+        learning_rate = self.hyperparams.Neural_Network["learning_rate"]
+       
 
-        model = train(model, examples, epochs=40, batch_size=256)
-        # TODO: Implement training mechanism
-        logging.info("Training complete.")
+        model, policy_losses, value_losses = train(model, examples, epochs, batch_size, learning_rate)
+
+        iter_number = self.data_manager.get_iter_number()
+        plt.figure(figsize=(10, 5))
+        plt.plot(range(1, epochs + 1), policy_losses, label="Policy Loss")
+        plt.plot(range(1, epochs + 1), value_losses, label="Value Loss")
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.title(f"Training Loss Iteration {iter_number} ")
+        plt.legend()
+        plt.savefig(f"Training_loss_{iter_number}", dpi=300)
+
         return model
+    
+    def accept_new_model(self, won):
+      
+        return won / self.hyperparams.Arena["arena_games"] >= self.hyperparams.Arena["treshold"]
 
 if __name__ == "__main__":
     coach = Coach()
