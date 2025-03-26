@@ -15,20 +15,20 @@ class Hyperparameters:
         - Node with keys ["key_passsing, prior_passing]"""
 
     MCTS = {
-        "num_simulations": 200,
+        "num_simulations": 50,
         "exploration_weight": 1.0,
         "temp_threshold": 14,
         "temp": 1,
     }
 
     Coach = {"iterations": 50, 
-             "episodes": 22*50,
+             "episodes": 22*1,
              "num_workers" :22, }
     Coach["episodes_per_worker"] = Coach["episodes"] // Coach["num_workers"]
 
     Neural_Network = {
         "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), 
-        "epochs" : 75, 
+        "epochs" : 8, 
         "batch_size" : 2048,
         "learning_rate" : 0.004
     }
