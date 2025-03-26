@@ -257,13 +257,13 @@ class OthelloGame:
             state (np.ndarray): Final board state.
 
         Returns:
-            int: 1 for black, -1 for white, 0 for a draw.
+            int: either black, white or 0
         """
         score = np.sum(state)
         if score > 0:
-            return const.PlayerColor.BLACK.value
-        elif score < 0:
             return const.PlayerColor.WHITE.value
+        elif score < 0:
+            return const.PlayerColor.BLACK.value
         return 0
 
     def print_board(self, state, to_cosole=True):
