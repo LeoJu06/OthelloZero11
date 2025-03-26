@@ -57,8 +57,8 @@ class Arena:
         won = results.count(1)
         lost = results.count(-1)
 
-        print(f"✅ Spiele abgeschlossen: {num_games}")
-        print(f"🏆 Gewonnen: {won}")
-        print(f"❌ Verloren: {lost}")
+        print(f"Spiele abgeschlossen: {num_games}")
+        print(f"Gewonnen: {won}")
+        print(f"Verloren: {lost}")
 
         return won, lost
