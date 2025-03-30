@@ -102,6 +102,7 @@ class MCTS:
             action_probs, valid_moves
         )  # Normalize probabilities based on valid moves.
 
+        
         self.root.expand(
             state, to_play, action_probs
         )  # Expand the root node with action probabilities.
@@ -161,6 +162,7 @@ class MCTS:
 
             # Filter probabilities by valid moves and expand the leaf node.
             valid_moves = self.get_valid_moves(next_state, leaf_player)
+          
             action_probs = self.normalize_probs(action_probs, valid_moves)
             leaf.expand(next_state, leaf_player, action_probs)
 
@@ -200,6 +202,7 @@ class MCTS:
             np.ndarray: Normalized probabilities.
         """
         action_probs = mark_valid_moves(action_probs, valid_moves)
+       
         return action_probs / action_probs.sum()
 
     def backpropagate(self, search_path: list, value: float):
@@ -331,6 +334,7 @@ if __name__ == "__main__":
 
 
     model = OthelloZeroModel(g.rows, g.get_action_size(), h.Neural_Network["device"])
+    
   
  
     dummy_console_mcts(args=(model, 0))
