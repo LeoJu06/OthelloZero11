@@ -8,9 +8,27 @@ import matplotlib.pyplot as plt
 
 from src.neural_net.model import OthelloZeroModel
 from src.data_manager.data_manager import DataManager
+def preprocess_board(board):
+    """
+    Converts a canonical Othello board [8, 8] into two-channel format [2, 8, 8].
 
+    Args:
+        board (np.ndarray): The canonical Othello board where 1 = current player, -1 = opponent.
 
-def train(model, data, epochs=10, batch_size=2048, lr=0.001, save_training_plot=False):
+    Returns:
+        np.ndarray: A board with shape (2, 8, 8) for model input.
+    """
+    board = np.array(board, dtype=np.float32)
+
+    # Channel 1: Current player's pieces
+    player_channel = (board == 1).astype(np.float32)
+
+    # Channel 2: Opponent's pieces
+    opponent_channel = (board == -1).astype(np.float32)
+
+    return np.stack([player_channel, opponent_channel], axis=0)  # Shape: [2, 8, 8]
+
+def train(model, data, epochs=10, batch_size=2048, lr=0.001):
     """
     Trains the AlphaZero model with the given data.
 
@@ -29,10 +47,9 @@ def train(model, data, epochs=10, batch_size=2048, lr=0.001, save_training_plot=
     value_loss_fn = nn.MSELoss()
 
     # Convert data to tensors
-    boards = torch.tensor(np.array([d[0] for d in data]), dtype=torch.float32).to(model.device)
-    policies = torch.tensor(np.array([d[1] for d in data]), dtype=torch.float32).to(model.device)
-    values = torch.tensor(np.array([d[2] for d in data]), dtype=torch.float32).to(model.device)
-
+    boards = torch.tensor(np.array([preprocess_board(d[0]) for d in data]), dtype=torch.float32).to(model.device)  
+    policies = torch.tensor(np.array([d[1] for d in data]), dtype=torch.float32).to(model.device)  
+    values = torch.tensor(np.array([d[2] for d in data]), dtype=torch.float32).to(model.device)  
 
     dataset = torch.utils.data.TensorDataset(boards, policies, values)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -51,11 +68,11 @@ def train(model, data, epochs=10, batch_size=2048, lr=0.001, save_training_plot=
             
             pred_policies, pred_values = model(batch_boards)
 
-            # **Policy Loss Fix:**
-            pred_policies = torch.log(pred_policies + 1e-8)  # Log probabilities for KLDivLoss
+            # Fix policy loss: use log probabilities for KLDivLoss
+            pred_policies = torch.log(pred_policies + 1e-8)  
             policy_loss = policy_loss_fn(pred_policies, batch_policies)
 
-            # Value loss (MSE for the value)
+            # Value loss
             value_loss = value_loss_fn(pred_values.squeeze(), batch_values)
 
             # Total loss
@@ -66,9 +83,7 @@ def train(model, data, epochs=10, batch_size=2048, lr=0.001, save_training_plot=
 
             total_policy_loss += policy_loss.item()
             total_value_loss += value_loss.item()
-
             num_batches += 1
-
 
         avg_policy_loss = total_policy_loss / num_batches
         avg_value_loss = total_value_loss / num_batches
@@ -76,12 +91,10 @@ def train(model, data, epochs=10, batch_size=2048, lr=0.001, save_training_plot=
         policy_losses.append(avg_policy_loss)
         value_losses.append(avg_value_loss)
 
-        print(f"Epoch {epoch+1}/{epochs} - Policy Loss: {total_policy_loss:.4f} - Value Loss: {total_value_loss:.4f}")
-    
-    
-  
+        print(f"Epoch {epoch+1}/{epochs} - Policy Loss: {avg_policy_loss:.4f} - Value Loss: {avg_value_loss:.4f}")
 
     return model, policy_losses, value_losses
+
 
 if __name__ == "__main__":
 
