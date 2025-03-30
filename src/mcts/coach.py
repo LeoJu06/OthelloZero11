@@ -132,8 +132,8 @@ class Coach:
         """
         game = OthelloGame()
         hyperparams = self.hyperparams
-        #model = OthelloZeroModel(game.rows, game.get_action_size(), hyperparams.Neural_Network["device"])
-        model = self.data_manager.load_model()
+        model = OthelloZeroModel(game.rows, game.get_action_size(), hyperparams.Neural_Network["device"])
+       # model = self.data_manager.load_model()
         self.data_manager.save_model(model)
 
         for iteration in (range(1, hyperparams.Coach["iterations"] + 1)):
@@ -158,7 +158,7 @@ class Coach:
             new_model = self.train(model, examples)
             lg.logger_coach.info("Training Model complete.")
 
-            old_model = self.data_manager.load_model(latest_model=True)
+            old_model =  self.data_manager.load_model(latest_model=True)
             lg.logger_coach.info("Arena - New Model vs. old Model.")
 
             won, lost = self.arena.let_compete(new_model, old_model)
@@ -181,6 +181,9 @@ class Coach:
             self.report(won, lost, examples, duration=time.time()-start_time)
             self.data_manager.increment_iteration() # increment interation number in txt file
             self.data_manager.save_model(model) # save new model
+            self.hyperparams.MCTS["num_simulations"] += 40
+            self.hyperparams.MCTS["num_simulations"] = max(800, self.hyperparams.MCTS["num_simulations"])
+            
             lg.logger_coach.info(f"Iteration {iteration} completed in {time.time() - start_time:.2f}s.")
 
             
