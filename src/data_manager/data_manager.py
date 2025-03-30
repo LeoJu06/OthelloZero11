@@ -114,7 +114,7 @@ class DataManager:
             n = self.get_iter_number()  # +1, because range() exludes the last number
             combinded = []
 
-            for ex_n in reversed(range(max(n-8, 0), max(n, 1))):
+            for ex_n in reversed(range(max(n-5, 0), max(n, 1))):
                 print("File number", ex_n)
                 filename = f"examples/examples_iteration_{ex_n}.pkl"
                 path = os.path.join(data_dir, filename)
@@ -160,5 +160,5 @@ if __name__ == "__main__":
     da = DataManager()
     n = da.get_iter_number()
 
-    e = da.load_examples()
+    e = da.load_examples(0)
     print(len(e))
