@@ -9,6 +9,9 @@ from src.othello.game_settings import (
     FPS,
 )
 from src.othello.game_visuals import GameVisuals
+from src.data_manager.data_manager import DataManager
+from src.mcts.mcts import MCTS
+from src.utils.index_to_coordinates import index_to_coordinates
 
 
 class GamePvsAi:
@@ -27,6 +30,8 @@ class GamePvsAi:
         self.clock = pygame.time.Clock()
         self.board = OthelloGame()
         self.visuals = GameVisuals(screen, self.clock)
+        self.data_manager = DataManager()
+        self.mcts = MCTS(model=self.data_manager.load_model())
 
         # Game state variables
         self.running = True
@@ -121,10 +126,22 @@ class GamePvsAi:
         Executes the AI's turn by making a random valid move.
         """
         print("AI's turn")
-        self.game_state, self.current_player = self.board.play_random_move(
-            self.game_state, self.current_player
-        )
+        value  = self.mcts.model.predict(self.game_state)[1]
+        self.visuals.append_value(value)
+        print(f"Current estimation: {value}")
+        root = self.mcts.run_search(self.game_state, self.current_player, False)
+        action = root.select_action(0)
+        x, y = index_to_coordinates(action)
 
+        flipped_stones = self.board._find_stones_to_flip(self.game_state, self.current_player, x, y)
+
+
+        self.game_state, self.current_player = self.board.get_next_state(self.game_state, self.current_player, x, y)
+        self.visuals.play_flip_animation(self.game_state, flipped_stones, self.current_player)
+        #self.game_state, self.current_player = self.board.play_random_move(
+        #    self.game_state, self.current_player
+        #)
+        self.mcts.root.reset()
         self.switch_turn()
 
     def switch_turn(self):
@@ -140,6 +157,7 @@ class GamePvsAi:
         self.visuals.draw_board(self.game_state)
         valid_moves = self.board.get_valid_moves(self.game_state, self.current_player)
         self.visuals.mark_valid_fields(valid_moves)
+        self.visuals.draw_plot()
         pygame.display.flip()
 
     def display_winner(self):
