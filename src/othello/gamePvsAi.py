@@ -1,4 +1,4 @@
-import os
+import threading
 import pygame
 from src.othello.othello_game import OthelloGame
 import src.othello.game_constants as const
@@ -12,6 +12,7 @@ from src.othello.game_visuals import GameVisuals
 from src.data_manager.data_manager import DataManager
 from src.mcts.mcts import MCTS
 from src.utils.index_to_coordinates import index_to_coordinates
+
 
 
 class GamePvsAi:
@@ -37,6 +38,7 @@ class GamePvsAi:
         self.running = True
         self.current_player = const.PlayerColor.BLACK.value
         self.is_ai_turn = False  # Player starts by default
+        self.ai_action = None 
         self.game_state = self.board.get_init_board()
 
     def run_game_loop(self, fps=FPS):
@@ -126,12 +128,15 @@ class GamePvsAi:
         Executes the AI's turn by making a random valid move.
         """
         print("AI's turn")
+
         value  = self.mcts.model.predict(self.game_state)[1]
         self.visuals.append_value(value)
-        print(f"Current estimation: {value}")
-        root = self.mcts.run_search(self.game_state, self.current_player, False)
-        action = root.select_action(0)
-        x, y = index_to_coordinates(action)
+
+        self._run_mcts_search()
+
+
+
+        x, y = index_to_coordinates(self.ai_action)
 
         flipped_stones = self.board._find_stones_to_flip(self.game_state, self.current_player, x, y)
 
@@ -143,6 +148,12 @@ class GamePvsAi:
         #)
         self.mcts.root.reset()
         self.switch_turn()
+
+    def _run_mcts_search(self):
+        root = self.mcts.run_search(self.game_state, self.current_player, False)
+        action = root.select_action(0)
+        self.ai_action = action
+
 
     def switch_turn(self):
         """
