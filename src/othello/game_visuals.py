@@ -12,6 +12,18 @@ import numpy as np
 import pygame
 import io
 
+import matplotlib.pyplot as plt
+import numpy as np
+import io
+import pygame
+from matplotlib.ticker import MaxNLocator
+
+import matplotlib.pyplot as plt
+import numpy as np
+import io
+import pygame
+from matplotlib.ticker import MaxNLocator
+
 def generate_plot_image(data_points):
     """
     Erstellt ein Matplotlib-Diagramm mit Zugnummern auf der X-Achse und gibt es als Pygame-Bild zurück.
@@ -22,20 +34,40 @@ def generate_plot_image(data_points):
     Returns:
         pygame.Surface: Das gerenderte Diagramm als Bild.
     """
-    fig, ax = plt.subplots(figsize=(4, 2))  # Größe des Plots anpassen
+    fig, ax = plt.subplots(figsize=(4, 2))  # Größeren Plot anpassen
     
     # Erstellen des Plots mit X-Achse als Züge (0,1,2,...)
     turns = list(range(len(data_points)))  # X-Achse: Zugnummern
-    ax.plot(turns, data_points, marker="o", linestyle="-", color="blue")
+    ax.plot(turns, data_points, marker="o", linestyle="-", color="blue", markersize=4)
 
     # Achsentitel setzen
     ax.set_title("Value estimation of the neural network")
     ax.set_xlabel("Turn number")
     ax.set_ylabel("Value")
 
+    # Maximale Anzahl der Ticks auf der X-Achse steuern (z.B. alle 5 Züge)
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True, prune='both', steps=[5]))
+
+    # Y-Achse anpassen, um den Bereich (-1 bis 1) zu kontrollieren
+    ax.set_ylim(-1.1, 1.1)
+
+    # X-Achsen-Beschriftungen horizontal ausrichten
+    plt.xticks(rotation=0)
+
+    # Letzten Wert als Text an der X-Achse hinzufügen
+    ax.text(
+        turns[-1],  # Position auf der X-Achse (letzter Wert)
+        data_points[-1],  # Position auf der Y-Achse (entsprechender Wert)
+        f"{data_points[-1]:.2f}",  # Text (der Wert mit 2 Dezimalstellen)
+        ha='center',  # Horizontale Ausrichtung
+        va='top',  # Vertikale Ausrichtung (Text etwas oberhalb des Punktes)
+        color='black',  # Textfarbe
+        fontsize=10,  # Schriftgröße
+    )
+
     # Layout anpassen
-    plt.xticks(turns)  # Zeigt alle Zugnummern als x-Ticks
     plt.grid(True, linestyle="--", alpha=0.5)
+    plt.tight_layout()
 
     # Konvertiere den Plot in ein Bild
     buf = io.BytesIO()
@@ -47,6 +79,8 @@ def generate_plot_image(data_points):
     image = pygame.image.load(buf)
     
     return image
+
+
 class GameVisuals:
     """
     Handles the rendering and animation for the Othello game.
@@ -73,7 +107,7 @@ class GameVisuals:
         self.square_size = SQUARE_SIZE  # Square size for each tile on the board
         self.screen = screen  # Screen to render the visuals
         self.clock = clock  # Clock to control the frame rate
-        self.values = []
+        self.values = [0]
 
         # Load the images for black and white stones
         self.image_black_stone, self.image_white_stone = self._load_stone_images()
