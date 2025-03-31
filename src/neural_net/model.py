@@ -21,7 +21,7 @@ class ResidualBlock(nn.Module):
 
 
 class OthelloZeroModel(nn.Module):
-    def __init__(self, board_size=8, action_size=64, device="cpu", num_res_blocks=10):
+    def __init__(self, board_size=8, action_size=64, device="cpu", num_res_blocks=13):
         super().__init__()
         self.device = device
 
