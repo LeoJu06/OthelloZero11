@@ -234,6 +234,24 @@ class OthelloGame:
                 return -1
 
         return 0
+    
+    def legal_moves_to_2d(self, legal_moves):
+        """
+        Konvertiert eine Liste von validen Zügen in ein 2D-Array.
+        
+        Args:
+            legal_moves: Liste von Tupeln (row, col), z. B. [(2,4), (3,5)]
+            board_size: Größe des Bretts (Standard 8x8)
+        
+        Returns:
+            Ein 2D-Numpy-Array mit 1 an legalen Positionen, 0 sonst
+        """
+        legal_array = np.zeros((self.rows, self.columns))
+        for move in legal_moves:
+            row, col = move
+            if 0 <= row < self.rows and 0 <= col < self.columns:
+                legal_array[row, col] = 1.0
+        return legal_array
 
     def is_terminal_state(self, state):
         """
@@ -291,6 +309,8 @@ class OthelloGame:
         if to_cosole:
             print(board_str)
         return board_str
+    
+
 
     def play_random_move(self, state, player):
         """
@@ -371,3 +391,4 @@ def play_game():
 
 if __name__ == "__main__":
     play_game_with_random_moves()
+
