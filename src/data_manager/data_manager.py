@@ -3,6 +3,10 @@ from src.othello.othello_game import OthelloGame
 from src.neural_net.model import OthelloZeroModel
 from src.mcts.node import Node
 import os
+
+import pickle
+import random
+from collections import deque
 import pickle
 import torch
 from pathlib import Path
@@ -110,11 +114,10 @@ class DataManager:
             return examples
         
         else:
-
             n = self.get_iter_number()  # +1, because range() exludes the last number
             combinded = []
 
-            for ex_n in reversed(range(max(n-5, 0), max(n, 1))):
+            for ex_n in (range(max(n-5, 0), max(n, 1))):
                 print("File number", ex_n)
                 filename = f"examples/examples_iteration_{ex_n}.pkl"
                 path = os.path.join(data_dir, filename)
@@ -138,7 +141,7 @@ class DataManager:
 
         if latest_model:
             n = self.get_iter_number()
-        model = OthelloZeroModel(8, 65, "cuda")
+        model = OthelloZeroModel(board_size=8, action_size=65, device="cuda")
         model.load_state_dict(torch.load(f"data/models/othello_zero_model_{n}"))
         return model
 
@@ -150,6 +153,22 @@ class DataManager:
             training_example: A single training example to add to the data list.
         """
         self.data.append(training_example)
+
+
+
+class ReplayBuffer:
+    def __init__(self, max_size=500_000):
+        self.buffer = deque(maxlen=max_size)
+    
+    def add(self, examples):
+        self.buffer.extend(examples)
+    
+    def sample(self, num_samples):
+        # Gibt alle Beispiele zurück, wenn weniger als num_samples vorhanden sind
+        return random.sample(self.buffer, min(num_samples, len(self.buffer)))
+    
+    def __len__(self):
+        return len(self.buffer)
 
 
 if __name__ == "__main__":

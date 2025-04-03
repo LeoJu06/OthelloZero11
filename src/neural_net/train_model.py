@@ -3,97 +3,77 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
 from random import shuffle
-import matplotlib.pyplot as plt
-
-from src.neural_net.model import OthelloZeroModel
+from src.neural_net.preprocess_board import preprocess_board
 from src.data_manager.data_manager import DataManager
-def preprocess_board(board):
-    """
-    Converts a canonical Othello board [8, 8] into two-channel format [2, 8, 8].
 
-    Args:
-        board (np.ndarray): The canonical Othello board where 1 = current player, -1 = opponent.
+def train(model, data, epochs=10, batch_size=128, lr=0.001, accumulation_steps=4):
+    """Train AlphaZero model with gradient accumulation to simulate a larger batch size"""
+    device = next(model.parameters()).device
+    
+    # Convert data to tensors
+    boards = torch.stack([torch.tensor(preprocess_board(d[0])) for d in data]).float()
+    policies = torch.tensor(np.array([d[1] for d in data])).float()
+    values = torch.tensor(np.array([d[2] for d in data])).float()
+    
+    # Normalize policies to ensure sum=1
+    policies = policies / policies.sum(dim=1, keepdim=True)
+    
+    # Move to device
+    boards, policies, values = boards.to(device), policies.to(device), values.to(device)
 
-    Returns:
-        np.ndarray: A board with shape (2, 8, 8) for model input.
-    """
-    board = np.array(board, dtype=np.float32)
-
-    # Channel 1: Current player's pieces
-    player_channel = (board == 1).astype(np.float32)
-
-    # Channel 2: Opponent's pieces
-    opponent_channel = (board == -1).astype(np.float32)
-
-    return np.stack([player_channel, opponent_channel], axis=0)  # Shape: [2, 8, 8]
-
-def train(model, data, epochs=10, batch_size=2048, lr=0.001):
-    """
-    Trains the AlphaZero model with the given data.
-
-    Args:
-        model (OthelloZeroModel): The neural network.
-        data (list): Training data [(board, policy, value), ...]
-        epochs (int): Number of epochs.
-        batch_size (int): Mini-batch size.
-        lr (float): Learning rate.
-
-    Returns:
-        None
-    """
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)  # L2 regularization
-    policy_loss_fn = nn.KLDivLoss(reduction="batchmean")  # KL divergence for probabilities
+    # Initialize optimizer and loss functions
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    policy_loss_fn = nn.KLDivLoss(reduction='batchmean')
     value_loss_fn = nn.MSELoss()
 
-    # Convert data to tensors
-    boards = torch.tensor(np.array([preprocess_board(d[0]) for d in data]), dtype=torch.float32).to(model.device)  
-    policies = torch.tensor(np.array([d[1] for d in data]), dtype=torch.float32).to(model.device)  
-    values = torch.tensor(np.array([d[2] for d in data]), dtype=torch.float32).to(model.device)  
-
-    dataset = torch.utils.data.TensorDataset(boards, policies, values)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    # Create DataLoader
+    dataset = TensorDataset(boards, policies, values)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model.train()
-    policy_losses = []
-    value_losses = []
+    policy_losses, value_losses = [], []
 
     for epoch in range(epochs):
-        total_policy_loss = 0
-        total_value_loss = 0
-        num_batches = 0
+        epoch_policy_loss, epoch_value_loss = 0, 0
+        optimizer.zero_grad()  # Initialize the gradient accumulator
 
-        for batch_boards, batch_policies, batch_values in dataloader:
-            optimizer.zero_grad()
+        for i, (batch_boards, batch_policies, batch_values) in enumerate(dataloader):
+            # Forward pass
+            logits, value_pred = model(batch_boards)
+
+            # Policy loss (KL-Divergence)
+            log_probs = F.log_softmax(logits, dim=1)
+            policy_loss = policy_loss_fn(log_probs, batch_policies)
             
-            pred_policies, pred_values = model(batch_boards)
-
-            # Fix policy loss: use log probabilities for KLDivLoss
-            pred_policies = torch.log(pred_policies + 1e-8)  
-            policy_loss = policy_loss_fn(pred_policies, batch_policies)
-
             # Value loss
-            value_loss = value_loss_fn(pred_values.squeeze(), batch_values)
-
+            value_loss = value_loss_fn(value_pred.squeeze(), batch_values)
+            
             # Total loss
             loss = policy_loss + value_loss
-
             loss.backward()
-            optimizer.step()
 
-            total_policy_loss += policy_loss.item()
-            total_value_loss += value_loss.item()
-            num_batches += 1
+            # Gradient accumulation step
+            if (i + 1) % accumulation_steps == 0 or (i + 1) == len(dataloader):
+                optimizer.step()
+                optimizer.zero_grad()  # Reset gradients after the update
 
-        avg_policy_loss = total_policy_loss / num_batches
-        avg_value_loss = total_value_loss / num_batches
+            epoch_policy_loss += policy_loss.item()
+            epoch_value_loss += value_loss.item()
 
-        policy_losses.append(avg_policy_loss)
-        value_losses.append(avg_value_loss)
+        # Calculate epoch averages
+        avg_policy = epoch_policy_loss / len(dataloader)
+        avg_value = epoch_value_loss / len(dataloader)
+        policy_losses.append(avg_policy)
+        value_losses.append(avg_value)
 
-        print(f"Epoch {epoch+1}/{epochs} - Policy Loss: {avg_policy_loss:.4f} - Value Loss: {avg_value_loss:.4f}")
+        print(f"Epoch {epoch+1}/{epochs} | Policy Loss: {avg_policy:.4f} | Value Loss: {avg_value:.4f}")
 
     return model, policy_losses, value_losses
+
+
 
 
 if __name__ == "__main__":

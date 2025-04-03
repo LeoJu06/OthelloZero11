@@ -29,10 +29,14 @@ class Arena:
             mcts = mcts_challenger if current_player == PlayerColor.BLACK.value else mcts_old_model
 
             # MCTS-Suche für den aktuellen Spieler
-            root = mcts.run_search(state, current_player)
+            try:
+                root = mcts.run_search(state, current_player)
+            except AttributeError:
+                print("Error Occured, Network outputed no valid moves")
+                return 0
 
             # Aktion auswählen und Zustand aktualisieren
-            x_pos, y_pos = index_to_coordinates(root.select_action(int(turn < 15)))
+            x_pos, y_pos = index_to_coordinates(root.select_action(int(turn < 14)))
             state, current_player = game.get_next_state(state, current_player, x_pos, y_pos)
 
             root.reset()
@@ -43,7 +47,7 @@ class Arena:
             return 1  # Challenger gewinnt
         elif game.determine_winner(state) == PlayerColor.WHITE.value:
             return -1  # Challenger verliert
-        return 0  # Unentschieden (falls das vorkommen kann)
+        return 0  # Unentschieden 
 
     def let_compete(self, challenger, old_model):
         """Lässt die zwei Modelle gegeneinander spielen und parallelisiert die Spiele."""

@@ -15,8 +15,8 @@ class Hyperparameters:
         - Node with keys ["key_passsing, prior_passing]"""
 
     MCTS = {
-        "num_simulations": 100,
-        "exploration_weight": 1.2,
+        "num_simulations": 200,
+        "exploration_weight": 1.5,
         "temp_threshold": 14,
         "temp": 1,
     }
@@ -30,12 +30,12 @@ class Hyperparameters:
         "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"), 
         "epochs" : 20, 
         "batch_size" : 128,
-        "learning_rate" : 0.004
+        "learning_rate" : 0.001
     }
 
     Node = {"key_passing": -1, "prior_passing": 1}
 
-    Arena = {"treshold": 0.55, "arena_games": 150}
+    Arena = {"treshold": 0.55, "arena_games": 10}
 
         
-        
+    
