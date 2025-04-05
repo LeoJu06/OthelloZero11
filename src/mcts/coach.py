@@ -61,8 +61,9 @@ class Coach:
             temp = int(episode_step < self.hyperparams.MCTS["temp_threshold"])
             root = mcts.run_search(state, current_player)
 
-            # Store training example
-            examples.append(self.data_manager.create_example(state, current_player, root, temp))
+            if episode_step < self.hyperparams.MCTS["data_turn_limit"]: # othello games endures max of 60 moves, last 5 moves do not have to be stored
+                # Store training example
+                examples.append(self.data_manager.create_example(state, current_player, root, temp))
 
             # Select action and update game state
             x_pos, y_pos = index_to_coordinates(root.select_action(temp))
