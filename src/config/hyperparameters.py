@@ -19,6 +19,7 @@ class Hyperparameters:
         "exploration_weight": 1.5,
         "temp_threshold": 14,
         "temp": 1,
+        "data_turn_limit": 55
     }
 
     Coach = {"iterations": 50, 
